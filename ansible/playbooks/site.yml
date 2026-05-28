@@ -1,0 +1,21 @@
+---
+- name: Configure all servers
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+    - security
+
+- name: Configure application servers
+  hosts: app_servers
+  become: yes
+  roles:
+    - docker
+    - monitoring
+
+- name: Configure database servers
+  hosts: db_servers
+  become: yes
+  roles:
+    - database_hardening

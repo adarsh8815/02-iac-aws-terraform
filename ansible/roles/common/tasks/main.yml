@@ -1,0 +1,80 @@
+---
+- name: Update apt cache and upgrade packages
+  apt:
+    update_cache: yes
+    upgrade: dist
+    cache_valid_time: 3600
+  tags: [packages]
+
+- name: Install common packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - net-tools
+      - unzip
+      - jq
+      - awscli
+      - fail2ban
+      - ufw
+      - logrotate
+      - chrony
+    state: present
+  tags: [packages]
+
+- name: Set timezone to UTC
+  timezone:
+    name: UTC
+
+- name: Configure NTP with chrony
+  template:
+    src: chrony.conf.j2
+    dest: /etc/chrony.conf
+  notify: restart chrony
+
+- name: Configure sysctl for performance
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { key: 'net.ipv4.tcp_fin_timeout', value: '30' }
+    - { key: 'net.core.somaxconn', value: '65535' }
+    - { key: 'vm.swappiness', value: '10' }
+    - { key: 'net.ipv4.ip_local_port_range', value: '1024 65000' }
+  tags: [sysctl]
+
+- name: Setup UFW firewall
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+
+- name: Create application user
+  user:
+    name: "{{ app_user }}"
+    shell: /bin/bash
+    groups: sudo
+    append: yes
+    create_home: yes
+
+- name: Create standard directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    mode: '0755'
+  loop:
+    - /opt/apps
+    - /var/log/apps
+    - /etc/apps
